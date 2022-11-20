@@ -4,8 +4,8 @@
     "ghcr.io/devcontainers-contrib/features/ansible:1": {},
     "ghcr.io/devcontainers/features/python:1": {},
     "ghcr.io/devcontainers/features/docker-in-docker:1": {
-          "version": "latest",
-          "moby": true
-      }
+        "version": "latest",
+        "moby": true
+    }
   }
 }
