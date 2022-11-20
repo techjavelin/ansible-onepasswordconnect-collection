@@ -111,6 +111,14 @@ def op_field_info():
     field_spec.update(common_options())
     return field_spec
 
+def lookup():
+    field_spec = dict(
+        section=dict(
+            type="str"
+        )
+    )
+    field_spec.update(common_options())
+    return field_spec
 
 # Configuration for the "Secure Password/Value Generator"
 GENERATOR_RECIPE_OPTIONS = dict(

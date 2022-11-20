@@ -42,6 +42,7 @@ _raw:
 '''
 
 import sys
+import tempfile
 import traceback
 
 from ansible.errors import AnsibleError
@@ -50,9 +51,18 @@ from ansible.module_utils.basic import AnsibleModule, env_fallback
 
 from ansible_collections.onepassword.connect.plugins.module_utils import specs, api, errors, fields, util
 from ansible_collections.onepassword.connect.plugins.module_utils.api import OnePassword
-from ansible_collections.onepassword.connect.lookups import MinimalModule
 
-class OnePasswordLookupModule(LookupBase):
+class OnePasswordMockModule(object):
+    def __init__(self, params):
+        self.params = params
+        self.ansible_version = "TODO: Get this from somewhere"
+        self.tmpdir = tempfile.tempdir
+
+    def fail_json(self, *args, **kwargs):
+        raise AnsibleError(kwargs['msg'])
+
+
+class OnePasswordLookupModule():
     def find_field(self, field_identifier, item, section=None) -> dict:
         """
         Tries to find the requested field within the provided item.
@@ -117,18 +127,21 @@ class OnePasswordLookupModule(LookupBase):
         raise errors.NotFoundError("Section label not found in item")
 
     def run(self, terms, variables=None, **kwargs):
-        self.set_options(var_options=variables, direct=kwargs)
+       
+        params = {
+            'section': kwargs.get('section', None),
+            'hostname': kwargs.get('hostname', env_fallback('OP_CONNECT_HOST')),
+            'token': kwargs.get('token', env_fallback('OP_CONNECT_TOKEN'))
+        }
 
         if len(terms) > 1:
             raise errors.Error(message="OnePassword does not support multiple lookups")
 
-        api_client = OnePassword(
-            hostname=self.get_option('hostname') or env_fallback(['OP_CONNECT_HOST']),
-            token=self.get_option('token') or env_fallback(['OP_CONNECT_TOKEN']),
-            module=MinimalModule()
-        )
+        module = OnePasswordMockModule(params)
 
-        section = self.get_option('section') or None
+        api_client = api.create_client(module)
+
+        section = params.get("section")
 
         terms_split = terms[0].split("/")
 
@@ -140,13 +153,21 @@ class OnePasswordLookupModule(LookupBase):
         field = terms_split[2]
 
         if not api.valid_client_uuid(vault):
-            vault = api_client.get_vault_id_by_name(vault)
+            vault_id = api_client.get_vault_id_by_name(vault)
+        else:
+            vault_id = vault
+
+        sys.stdout.write("Vault ID: " + vault_id + "\n")
 
         if not api.valid_client_uuid(item):
-            item_info = api_client.get_item_by_name(item, vault)
+            item_info = api_client.get_item_by_name(vault_id, item)
         else:
-            item_info = api_client.get_item_by_id(item, vault)
+            item_info = api_client.get_item_by_id(vault_id, item)
         
         field_info = self.find_field(field, item_info, section=section)
 
-        return field_info.value
+        return [field_info.get("value")]
+
+class LookupModule(LookupBase):
+    def run(self, terms, variables=None, **kwargs):
+        return OnePasswordLookupModule().run(terms, variables=variables, **kwargs)
