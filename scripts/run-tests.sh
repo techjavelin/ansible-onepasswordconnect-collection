@@ -64,6 +64,9 @@ function inject_env_vars() {
     find ./tests/integration -type f -name "*.yml" -exec sed -i '' "s|__OP_VAULT_ID__|${OP_VAULT_ID}|g" {} +
   fi
 
+  if [ ! -z "${OP_VAULT_NAME+x}" ]; then
+    find ./tests/integration -type f -name "*.yml" -exec sed -i '' "s|__OP_VAULT_NAME__|${OP_VAULT_NAME}|g" {} +
+  fi
 }
 
 function setup() {

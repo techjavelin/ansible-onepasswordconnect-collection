@@ -25,7 +25,6 @@ def create_client(module):
         module=module
     )
 
-
 class OnePassword:
     API_VERSION = "v1"
 

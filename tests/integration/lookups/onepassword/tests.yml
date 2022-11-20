@@ -1,0 +1,55 @@
+---
+- set_fact:
+    item_title: "Test OnePassword Lookup - ANSIBLE {{ 9999 | random }}"
+    
+- name: Setup | Create a test item
+  generic_item:
+    state: present
+    title: "{{ item_title }}"
+    category: api_credential
+    tags:
+      - exampleTag
+    fields:
+      - label: Password
+        generate_value: on_create
+        section: MySQL
+
+      - label: Username
+        value: penny
+        section: MySQL
+    vault_id: '__OP_VAULT_ID__'
+  register: test_item
+
+- set_fact:
+    mysql_section_id: test_item.op_item.sections[0].id
+
+- name: Simple Lookup | Perform the lookup 
+  set_fact:
+    lookup: lookup('onepassword', '__OP_VAULT_NAME__/{{ item_title }}/Password')
+
+- name: Simple Lookup | Assert value is correct
+  assert:
+    that:
+      "lookup is not undefined and lookup == test_item.op_item.fields['Password'].value"
+
+- name: Use Vault ID | Perform the lookup
+  set_fact:
+    lookup: lookup('onepassword', '__OP_VAULT_ID__//{{ item_title }}/Password')
+
+- name: Use Vault ID | Assert value is correct
+  assert: 
+    that:
+      - "lookup is not undefined and lookup == test_item.op_item.fields['Password'].value"
+
+- block: 
+  - name: Unknown Vault | Perform lookup
+    set_fact:
+      lookup: lookup('onepassword', 'Unknown/{{ item_title }}/Password')
+    result: notfound_result
+  ignore_errors: true
+
+- name: Unknown Vault | Verify Error
+  assert:
+    that: 
+      - notfound_result.failed
+  
