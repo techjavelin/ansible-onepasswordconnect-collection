@@ -153,16 +153,12 @@ class OnePasswordLookupModule():
         field = terms_split[2]
 
         if not api.valid_client_uuid(vault):
-            vault_id = api_client.get_vault_id_by_name(vault)
-        else:
-            vault_id = vault
-
-        sys.stdout.write("Vault ID: " + vault_id + "\n")
+            vault = api_client.get_vault_id_by_name(vault)
 
         if not api.valid_client_uuid(item):
-            item_info = api_client.get_item_by_name(vault_id, item)
+            item_info = api_client.get_item_by_name(vault, item)
         else:
-            item_info = api_client.get_item_by_id(vault_id, item)
+            item_info = api_client.get_item_by_id(vault, item)
         
         field_info = self.find_field(field, item_info, section=section)
 
