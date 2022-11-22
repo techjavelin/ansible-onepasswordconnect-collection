@@ -1,0 +1,18 @@
+FROM python:3.6-buster
+
+# Setup the OnePassword Connect Environment
+ARG OP_CONNECT_HOST
+ENV OP_CONNECT_HOST $OP_CONNECT_HOST
+
+WORKDIR /src
+
+RUN pip install --upgrade ansible ansible-core virtualenv && \
+    apt-get update && apt-get install -y rsync 
+
+COPY . .
+
+RUN --mount=type=secret,id=opconnect-token export OP_CONNECT_TOKEN="$(cat /run/secrets/opconnect-token)" \
+    && export ANSIBLE_TEST_USE_VENV=1 
+
+CMD [ "scripts/run-tests.sh", "integration" ]
+

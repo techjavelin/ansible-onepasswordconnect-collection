@@ -1,0 +1,40 @@
+version: "3.4"
+
+services:
+  op-connect-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.python3.6
+      args:
+        OP_CONNECT_HOST: "http://op-connect-api:8080"
+      secrets:
+        - opconnect-token
+    depends_on:
+      - op-connect-api
+    environment:
+      - OP_CONNECT_VAULT=${OP_CONNECT_VAULT}
+      - OP_CONNECT_VAULT_NAME=${OP_CONNECT_VAULT_NAME}
+    secrets:
+      - opconnect-token
+    command: /bin/bash
+  op-connect-api:
+    image: 1password/connect-api:latest
+    ports:
+      - "8080:8080"
+    volumes:
+      - "./1password-credentials.json:/home/opuser/.op/1password-credentials.json:Z"
+      - "data:/home/opuser/.op/data"
+  op-connect-sync:
+    image: 1password/connect-sync:latest
+    ports:
+      - "8081:8080"
+    volumes:
+      - "./1password-credentials.json:/home/opuser/.op/1password-credentials.json:Z"
+      - "data:/home/opuser/.op/data"
+
+volumes:
+  data:
+
+secrets:
+  opconnect-token: 
+      file: .op_connect_token_ansible

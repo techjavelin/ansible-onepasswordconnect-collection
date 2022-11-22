@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-if ! docker info >/dev/null 2>&1; then
+if [ ! docker info >/dev/null 2>&1 ] || [ -z ANSIBLE_TEST_USE_VENV ]; then
     echo "==> [ERROR] Docker must be running before executing tests."
     exit 1
 fi
@@ -57,15 +57,15 @@ function inject_env_vars() {
 
   cd "${TMP_COLLECTIONS_PATH}/"
   # replace placeholders with env vars for integration tests
-  find ./tests/integration/ -type f -name "*.yml" -exec sed -i '' "s|__OP_CONNECT_HOST__|${OP_CONNECT_HOST}|g" {} +
-  find ./tests/integration/ -type f -name "*.yml" -exec sed  -i '' "s|__OP_CONNECT_TOKEN__|${OP_CONNECT_TOKEN}|g" {} +
+  find ./tests/integration/ -type f -name "*.yml" -exec sed -i "s|__OP_CONNECT_HOST__|${OP_CONNECT_HOST}|g" {} +
+  find ./tests/integration/ -type f -name "*.yml" -exec sed  -i "s|__OP_CONNECT_TOKEN__|${OP_CONNECT_TOKEN}|g" {} +
 
   if [ ! -z "${OP_VAULT_ID+x}" ]; then
-    find ./tests/integration -type f -name "*.yml" -exec sed -i '' "s|__OP_VAULT_ID__|${OP_VAULT_ID}|g" {} +
+    find ./tests/integration -type f -name "*.yml" -exec sed -i "s|__OP_VAULT_ID__|${OP_VAULT_ID}|g" {} +
   fi
 
   if [ ! -z "${OP_VAULT_NAME+x}" ]; then
-    find ./tests/integration -type f -name "*.yml" -exec sed -i '' "s|__OP_VAULT_NAME__|${OP_VAULT_NAME}|g" {} +
+    find ./tests/integration -type f -name "*.yml" -exec sed -i "s|__OP_VAULT_NAME__|${OP_VAULT_NAME}|g" {} +
   fi
 }
 
@@ -90,7 +90,11 @@ function do_tests() {
   cd "${TMP_COLLECTIONS_PATH}/"
 
   echo "Initializing ansible-test ${TEST_SUITE} runner..........."
-  ANSIBLE_COLLECTIONS_PATH="${collection_path}" ansible-test "${TEST_SUITE}" --docker "${DOCKER_IMG}" --python "${MIN_PYTHON_VERSION}"
+  if [ -z "$ANSIBLE_TEST_USE_VENV" ]; then
+    ANSIBLE_COLLECTIONS_PATH="${collection_path}" ansible-test "${TEST_SUITE}" --docker "${DOCKER_IMG}" --python "${MIN_PYTHON_VERSION}"
+  else
+    ANSIBLE_COLLECTIONS_PATH="${collection_path}" ansible-test "${TEST_SUITE}" --venv --python "${MIN_PYTHON_VERSION}"
+  fi
 }
 
 trap _cleanup EXIT

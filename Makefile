@@ -7,6 +7,8 @@ GIT_BRANCH := $(shell git symbolic-ref --short HEAD)
 WORKTREE_CLEAN := $(shell git status --porcelain 1>/dev/null 2>&1; echo $$?)
 SCRIPTS_DIR := $(CURDIR)/scripts
 
+ENV ?= opconnect_collection
+
 curVersion := $$(sed -n -E 's/^version: "([0-9]+\.[0-9]+\.[0-9]+)"$$/\1/p' galaxy.yml)
 
 test/unit:	## Run unit tests in a Docker container
@@ -47,6 +49,28 @@ release/tag: .check_git_clean	## Creates git tag using version from package.json
 	@git tag --sign "v$(curVersion)" -m "Release v$(curVersion)"
 	@echo "[OK] Success!"
 	@echo "Remember to call 'git push --tags' to persist the tag."
+
+test/docker: 
+	@echo "Create a session token for op cli"
+	@op signin --raw > .op_session
+	@echo "Creating OP Connect Server"
+	@echo "Using Environment $(ENV) and Vault $(OP_VAULT_ID)"
+	@op connect server create $(ENV) --vaults $(OP_VAULT_ID) --session "$(cat .op_session)"
+	@chmod 777 1password-credentials.json
+	@echo "Creating OP Connect Token for ansible"
+	@op connect token create ansible --server $(ENV) --vault $(OP_VAULT_ID) --session "$(cat .op_session)" > .op_connect_token_ansible 
+	@echo "Creating OP Connect Containers"
+	@OP_CONNECT_VAULT=$(OP_VAULT_ID) OP_CONNECT_VAULT_NAME=$(OP_CONNECT_VAULT_NAME) docker-compose create --build
+	@echo "Starting OP Connect Server"
+	@docker-compose start
+
+test/teardown:
+	@echo "Tearing Down OnePassword Connect Server"
+	@docker-compose down -v --remove-orphans
+	@echo "Cleaning up op cli and connect"
+	@rm -rf 1password-credentials.json .op_connect_token_ansible .op_session
+	@op connect server delete $(ENV)	
+	@unset OP_TOKEN
 
 ## Helper functions =====================
 
