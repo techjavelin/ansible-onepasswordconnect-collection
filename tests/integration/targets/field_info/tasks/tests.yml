@@ -1,5 +1,7 @@
 ---
-
+- ansible.builtin.debug:
+    msg: "Using __OP_CONNECT_HOST__ with __OP_CONNECT_TOKEN__ and vault __OP_CONNECT_VAULT__"
+    
 - set_fact:
     field_label_to_find: "frogs frogs frogs"
     item_title: "Test Field Lookup - ANSIBLE {{ 9999 | random }}"

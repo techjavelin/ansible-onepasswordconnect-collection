@@ -8,6 +8,7 @@ WORKTREE_CLEAN := $(shell git status --porcelain 1>/dev/null 2>&1; echo $$?)
 SCRIPTS_DIR := $(CURDIR)/scripts
 
 ENV ?= opconnect_collection
+OP_VAULT_ID ?= $(shell op vault get $(OP_CONNECT_VAULT_NAME)  --format json | jq -r .id)
 
 curVersion := $$(sed -n -E 's/^version: "([0-9]+\.[0-9]+\.[0-9]+)"$$/\1/p' galaxy.yml)
 
@@ -60,9 +61,10 @@ test/docker:
 	@echo "Creating OP Connect Token for ansible"
 	@op connect token create ansible --server $(ENV) --vault $(OP_VAULT_ID) --session "$(cat .op_session)" > .op_connect_token_ansible 
 	@echo "Creating OP Connect Containers"
-	@OP_CONNECT_VAULT=$(OP_VAULT_ID) OP_CONNECT_VAULT_NAME=$(OP_CONNECT_VAULT_NAME) docker-compose create --build
+	@docker-compose up --no-start
 	@echo "Starting OP Connect Server"
 	@docker-compose start
+	@OP_CONNECT_HOST="http://op-connect-api:8080" OP_CONNECT_TOKEN="$(cat .op_connect_token_ansible)" OP_VAULT_ID=$(OP_VAULT_ID) OP_VAULT_NAME=$(OP_CONNECT_VAULT_NAME) $(SCRIPTS_DIR)/run-tests.sh integration
 
 test/teardown:
 	@echo "Tearing Down OnePassword Connect Server"

@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
+set -eo pipefail
 
-set -euo pipefail
+if [ -z "$OP_CONNECT_TOKEN_FILE" ]; then
+  OP_CONNECT_TOKEN_FILE=".op_connect_token_ansible"
+fi
 
-if [ ! docker info >/dev/null 2>&1 ] || [ -z ANSIBLE_TEST_USE_VENV ]; then
+if [ -f "$OP_CONNECT_TOKEN_FILE" ] && [ -z "$OP_CONNECT_TOKEN" ]; then
+  echo "Setting OP_CONNECT_TOKEN from ${OP_CONNECT_TOKEN_FILE}"
+  OP_CONNECT_TOKEN="$(cat $OP_CONNECT_TOKEN_FILE)"
+fis
+
+if [ ! docker info >/dev/null 2>&1 ] && [ -z $ANSIBLE_TEST_USE_VENV ]; then
     echo "==> [ERROR] Docker must be running before executing tests."
     exit 1
 fi
@@ -77,8 +85,17 @@ function setup() {
   rsync -ar --exclude '.*' "${PATH_TO_PACKAGES}/" "${TMP_COLLECTIONS_PATH}"
 }
 
-function do_tests() {
+function prepare_integration_config() {
+  truncate -s 0 ${TMP_COLLECTIONS_PATH}/test/ingration/integration-config.yml
+  while read -r line; do
+    echo $line
+    eval 'echo "'"${line}"'" >> "'"${TMP_COLLECTIONS_PATH}"'"/test/integration/integration_config.yml'
+  done
 
+  cat ${TMP_COLLECTIONS_PATH}/test/integration/integration_config.yml
+}
+
+function do_tests() {
   # `zz` is a throwaway value here
   # When the `if` cond sees `zz` it goes into the `else` block.
   if [ -z "${ANSIBLE_COLLECTIONS_PATH+zz}" ]; then
@@ -89,15 +106,21 @@ function do_tests() {
 
   cd "${TMP_COLLECTIONS_PATH}/"
 
+  echo "Using Server $OP_CONNECT_HOST"
+  echo "Token: $OP_CONNECT_TOKEN"
+  echo "Vault: $OP_CONNECT_VAULT_NAME ($OP_CONNECT_VAULT_NAME)"
+
   echo "Initializing ansible-test ${TEST_SUITE} runner..........."
+
   if [ -z "$ANSIBLE_TEST_USE_VENV" ]; then
-    ANSIBLE_COLLECTIONS_PATH="${collection_path}" ansible-test "${TEST_SUITE}" --docker "${DOCKER_IMG}" --python "${MIN_PYTHON_VERSION}"
+    ANSIBLE_COLLECTIONS_PATH="${collection_path}" ansible-test "${TEST_SUITE}" --docker "${DOCKER_IMG}" --python "${MIN_PYTHON_VERSION}" --docker-network ansible-onepasswordconnect-collection_default
   else
     ANSIBLE_COLLECTIONS_PATH="${collection_path}" ansible-test "${TEST_SUITE}" --venv --python "${MIN_PYTHON_VERSION}"
   fi
 }
 
 trap _cleanup EXIT
+
 setup
 inject_env_vars
 do_tests
