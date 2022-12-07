@@ -1,6 +1,7 @@
 .venv
 .idea
 .code
+.devcontainer
 
 .vscode/*
 !.vscode/settings.json
